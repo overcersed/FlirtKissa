@@ -152,7 +152,7 @@ async def reg_about(message: Message, state: FSMContext):
         await message.answer("❌ Слишком длинно. Максимум 200 символов:")
         return
     await state.update_data(about=about)
-    await message.answer("📸 Отправь своё фото (или напиши /skip чтобы пропустить):")
+    await message.answer("📸 Отправь своё фото — без фото анкету создать нельзя!")
     await state.set_state(Registration.photo)
 
 @dp.message(Registration.photo, F.photo)
@@ -161,10 +161,9 @@ async def reg_photo(message: Message, state: FSMContext):
     await state.update_data(photo_id=photo_id)
     await finish_registration(message, state)
 
-@dp.message(Registration.photo, Command("skip"))
-async def reg_photo_skip(message: Message, state: FSMContext):
-    await state.update_data(photo_id=None)
-    await finish_registration(message, state)
+@dp.message(Registration.photo)
+async def reg_photo_wrong(message: Message, state: FSMContext):
+    await message.answer("📸 Пожалуйста, отправь именно фото (не файл, не текст). Без фото анкету создать нельзя!")
 
 async def finish_registration(message: Message, state: FSMContext):
     data = await state.get_data()
@@ -176,7 +175,7 @@ async def finish_registration(message: Message, state: FSMContext):
         gender=data['gender'],
         city=data['city'],
         about=data['about'],
-        photo_id=data.get('photo_id')
+        photo_id=data['photo_id']
     )
     await state.clear()
     await message.answer(
@@ -218,10 +217,6 @@ async def handle_like(call: CallbackQuery):
     await call.answer("❤️")
 
     if is_match:
-        # Уведомляем обоих
-        liker_link = f"@{liker['username']}" if liker.get('username') else liker['name']
-        target_link = f"@{target['username']}" if target.get('username') else target['name']
-
         await bot.send_message(
             call.from_user.id,
             f"💞 <b>Мэтч!</b>\nТы и <b>{target['name']}</b> понравились друг другу!",
@@ -233,13 +228,11 @@ async def handle_like(call: CallbackQuery):
             reply_markup=match_kb(liker.get('username'))
         )
     else:
-        # Уведомляем цель о лайке (анонимно)
         await bot.send_message(
             target_id,
             f"❤️ Кто-то поставил тебе лайк! Зайди в раздел <b>Лайки</b> чтобы узнать кто."
         )
 
-    # Показываем следующую анкету
     profiles = db.get_feed(call.from_user.id)
     if profiles:
         next_p = profiles[0]
@@ -440,6 +433,7 @@ async def show_settings(message: Message):
         [InlineKeyboardButton(text="🗑 Удалить анкету", callback_data="delete_profile")]
     ])
     await message.answer("⚙️ <b>Настройки</b>", reply_markup=kb)
+
 @dp.message(Command("admin_users"))
 async def admin_users(message: Message):
     if message.from_user.id != ADMIN_ID:
@@ -498,4 +492,4 @@ async def main():
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    asyncio.run(main()) 
